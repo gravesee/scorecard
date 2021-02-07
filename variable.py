@@ -1,25 +1,51 @@
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Any, List
-import copy
+from typing import Any, List, Tuple
 
 import numpy as np
+import copy
 import pandas as pd
 import scipy.sparse as sp
 
 
 class Transform(ABC):
-
-    # is this necessary?
-    exceptions: List[Any]
-    missing: Any
+    def __init__(self, exceptions: List[Any], missing: Any):
+        self.exceptions = exceptions
+        self.missing = missing
 
     @abstractproperty
-    def labels(self) -> List[str]:
-        
+    def _labels(self) -> List[str]:  # type: ignore
         pass
 
+    @property
+    def labels(self) -> List[str]:
+        labels = self._labels
+        for e in self.exceptions:
+            labels.append(e)
+        labels.append("Missing")
+        return labels
+
+    def __len__(self) -> int:
+        return len(self.labels)
+
+    def is_missing(self, x: pd.Series):
+        if np.isnan(self.missing):
+            return np.isnan(x)
+        else:
+            return x == self.missing
+
+    def to_index(self, x: pd.Series) -> np.ndarray:
+        out, i = self._to_index(x)
+
+        for e in self.exceptions:
+            i += 1
+            out[x == e] = i
+
+        out[self.is_missing(x)] = i + 1
+
+        return out
+
     @abstractmethod
-    def to_index(self, x: pd.Series) -> pd.Series:
+    def _to_index(self, x: pd.Series) -> pd.Series:
         pass
 
     @abstractmethod
@@ -48,9 +74,8 @@ class ContinuousTransform(Transform):
     def __init__(
         self, breaks: List[float], exceptions: List[float], missing: float
     ) -> None:
+        super().__init__(exceptions, missing)
         self.breaks = breaks
-        self.exceptions = exceptions
-        self.missing = missing
 
     @property
     def breaks(self):
@@ -63,13 +88,10 @@ class ContinuousTransform(Transform):
         self._breaks = sorted(set(breaks))
 
     @property
-    def labels(self):
+    def _labels(self):
         labels = []
         for start, stop in zip(self.breaks, self.breaks[1:]):
             labels.append(str((start, stop)))
-        for e in self.exceptions:
-            labels.append(e)
-        labels.append("Missing")
         return labels
 
     def collapse(self, indices: List[int]):
@@ -82,43 +104,28 @@ class ContinuousTransform(Transform):
 
         self.breaks = breaks
 
-    def expand(self, index: int):
-        pass
+    def expand(self, index: int, value: float):
+        breaks = copy.copy(self.breaks)
+        breaks.insert(index, value)
+        self.breaks = breaks
 
-    def to_index(self, x: pd.Series):
-        i, j = 0, 0
-        out = np.full_like(x, fill_value=np.nan, dtype=int)
+    def _to_index(self, x: pd.Series) -> Tuple[np.ndarray, int]:
+        out: np.ndarray = np.full_like(x, fill_value=np.nan, dtype=int)  # type: ignore
         for i, (start, stop) in enumerate(zip(self.breaks, self.breaks[1:])):
             f = (x >= start) & (x <= stop)
             out[f] = i
 
-        # add exceptions
-        for j, e in enumerate(self.exceptions):
-            out[x == e] = i + j
-
-        # add missing
-        if np.isnan(self.missing):
-            out[np.isnan(x)] = i + j + 1
-        else:
-            out[x == self.missing] = i + j + 1
-
-        return out
+        return out, i
 
 
 class CategoricalTransform(Transform):
     def __init__(self, levels: List[Any], exceptions: List[Any], missing: float):
+        super().__init__(exceptions, missing)
         self.levels = [[x] for x in levels]
-        self.exceptions = exceptions
-        self.missing = missing
 
     @property
-    def labels(self):
-        labels = list(map(str, self.levels))
-        # return super().labels(labels)
-        for e in self.exceptions:
-            labels.append(e)
-        labels.append("Missing")
-        return labels
+    def _labels(self):
+        return list(map(str, self.levels))
 
     def collapse(self, indices: List[int]):
         for ix in indices[1:]:
@@ -132,26 +139,21 @@ class CategoricalTransform(Transform):
         self.levels += [[l] for l in levels]
         self.levels = sorted(self.levels)
 
-    def to_index(self, x: pd.Series):
+    def _to_index(self, x: pd.Series) -> Tuple[np.ndarray, int]:
         i, j = 0, 0
         out = np.full_like(x, fill_value=np.nan, dtype=int)
         for i, els in enumerate(self.levels):
             out[np.isin(x, els)] = i
 
-        # add exceptions
-        for j, e in enumerate(self.exceptions):
-            out[x == e] = i + j
-
-        # add missing
-        if np.isnan(self.missing):
-            out[np.isnan(x)] = i + j + 1
-        else:
-            out[x == self.missing] = i + j + 1
-
-        return out
+        return out, i
 
 
 v = ContinuousTransform([-3, -2, -1, 0, 1, 2, 3], [-998], np.nan)
+
+v.labels
+v.expand(0, -5)
+v.collapse([0, 1])
+
 x = np.random.randn(10000)
 
 pd.Series(v.to_index(x)).value_counts()
@@ -164,7 +166,7 @@ v.labels
 v.to_categorical(x).value_counts(sort=False)
 
 
-v = CategoricalTransform(list("abcde"), [], -998)
+v = CategoricalTransform(list("abcde"), ["Z"], -998)
 
 v.collapse([2, 3])
 v.levels
@@ -173,7 +175,5 @@ v.expand(2)
 
 x = np.random.choice(list("abdcde"), size=10000, replace=True)
 v.to_index(pd.Series(x))
-
 v.to_categorical(pd.Series(x))
-
 v.to_sparse(pd.Series(x))
