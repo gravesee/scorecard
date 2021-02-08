@@ -5,12 +5,14 @@ import numpy as np
 import copy
 import pandas as pd
 import scipy.sparse as sp
+import pickle
 
 
 class Transform(ABC):
     def __init__(self, exceptions: List[Any], missing: Any):
         self.exceptions = exceptions
         self.missing = missing
+        self._init = pickle.dumps(self)
 
     @abstractproperty
     def _labels(self) -> List[str]:  # type: ignore
@@ -67,15 +69,19 @@ class Transform(ABC):
         ix = self.to_index(x)
         labels = np.array(self.labels)
         cat = pd.Categorical(labels[ix], categories=labels, ordered=True)
-        return pd.Series(cat)
+        return pd.Series(cat)  # type: ignore
+
+    def reset(self):
+        init = pickle.loads(self._init)
+        self.__dict__ = init.__dict__
 
 
 class ContinuousTransform(Transform):
     def __init__(
         self, breaks: List[float], exceptions: List[float], missing: float
     ) -> None:
-        super().__init__(exceptions, missing)
         self.breaks = breaks
+        super().__init__(exceptions, missing)
 
     @property
     def breaks(self):
@@ -95,6 +101,14 @@ class ContinuousTransform(Transform):
         return labels
 
     def collapse(self, indices: List[int]):
+        """collapse bins together
+
+        Args:
+            indices (List[int]): index positiong of bins to collapse
+
+        The bins are indexed the same as the labels. Only lowest and highest indices
+        are used to collapse the entire range in-beteween.
+        """
         idx = sorted(indices)
         rng = list(range(idx[0], idx[-1]))
         breaks = []
@@ -105,6 +119,10 @@ class ContinuousTransform(Transform):
         self.breaks = breaks
 
     def expand(self, index: int, value: float):
+        """expand bin into two bins
+
+
+        """
         breaks = copy.copy(self.breaks)
         breaks.insert(index, value)
         self.breaks = breaks
@@ -120,14 +138,23 @@ class ContinuousTransform(Transform):
 
 class CategoricalTransform(Transform):
     def __init__(self, levels: List[Any], exceptions: List[Any], missing: float):
-        super().__init__(exceptions, missing)
         self.levels = [[x] for x in levels]
+        super().__init__(exceptions, missing)
 
     @property
     def _labels(self):
         return list(map(str, self.levels))
 
     def collapse(self, indices: List[int]):
+        """collapse bins together
+
+        Args:
+            indices (List[int]): index positiong of bins to collapse
+
+        The bins are indexed the same as the labels. All selected bins are combined
+        into one new bin. The old bins are removed. The constituents are maintained, though,
+        so the original bins can be retrieved with an expand operation.
+        """
         for ix in indices[1:]:
             self.levels[indices[0]] += self.levels[ix]
 
@@ -143,37 +170,6 @@ class CategoricalTransform(Transform):
         i, j = 0, 0
         out = np.full_like(x, fill_value=np.nan, dtype=int)
         for i, els in enumerate(self.levels):
-            out[np.isin(x, els)] = i
+            out[np.isin(x, els)] = i  # type: ignore
 
-        return out, i
-
-
-v = ContinuousTransform([-3, -2, -1, 0, 1, 2, 3], [-998], np.nan)
-
-v.labels
-v.expand(0, -5)
-v.collapse([0, 1])
-
-x = np.random.randn(10000)
-
-pd.Series(v.to_index(x)).value_counts()
-
-v.labels
-v.collapse([0, 2])
-
-v.labels
-
-v.to_categorical(x).value_counts(sort=False)
-
-
-v = CategoricalTransform(list("abcde"), ["Z"], -998)
-
-v.collapse([2, 3])
-v.levels
-
-v.expand(2)
-
-x = np.random.choice(list("abdcde"), size=10000, replace=True)
-v.to_index(pd.Series(x))
-v.to_categorical(pd.Series(x))
-v.to_sparse(pd.Series(x))
+        return out, i  # type: ignore
