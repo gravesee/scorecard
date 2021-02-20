@@ -3,8 +3,10 @@ import numpy as np
 from scorecard.performance import BinaryPerformance
 
 
-y = np.random.choice([0, 1], size=10000, replace=True)
-w = np.random.random(10000)
+N = 1000000
+
+y = np.random.choice([0, 1], size=N, replace=True)
+w = np.random.random(N)
 
 
 
@@ -15,7 +17,7 @@ v.labels
 v.expand(0, -5)
 v.collapse([0, 1])
 
-x = np.random.randn(10000)
+x = np.random.randn(N)
 
 pd.Series(v.to_index(x)).value_counts()
 
@@ -31,7 +33,8 @@ v.labels
 s = v.to_categorical(x)
 
 perf = BinaryPerformance(y, w)
-print(perf.summarize(s))
+
+%timeit perf.summarize(s, cache=False)
 
 quit()
 

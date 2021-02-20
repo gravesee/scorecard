@@ -1,21 +1,48 @@
 # TODO: copy important bits form pycard
 
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractproperty
 import pandas as pd
 import numpy as np
+import hashlib
+
+def series_cache(fun):
+    def inner(self, s, cache=True):
+        key = None
+        if cache:
+            if s.dtype == "category":
+                key = hashlib.md5(s.cat.codes.values).hexdigest()
+            else:
+                key = hashlib.md5(s.values).hexdigest()
+            if self._cache.get(key, None) is not None:
+                return self._cache[key]
+        
+        res = fun(self, s)
+        if cache:
+            self._cache[key] = res
+        return res
+    return inner
 
 
 class Performance(ABC):
+    def __init__(self, y, w):
+        self.y = pd.Series(y)
+        self.w = pd.Series(w)
+        self._cache = {}
+
     @abstractmethod
-    def summarize(self, s: pd.Series):
+    def summarize(self, s: pd.Series, cache: bool):
+        pass
+
+    @abstractproperty
+    def summary_statistic(self):
         pass
 
 
 class BinaryPerformance(Performance):
     def __init__(self, y, w) -> None:
-        self.y = pd.Series(y)
-        self.w = pd.Series(w)
+        super().__init__(y, w)
 
+    @series_cache
     def summarize(self, s):
         cnts = (
             self.w.groupby([s, self.y])
@@ -34,6 +61,10 @@ class BinaryPerformance(Performance):
         res.loc["Total", ["WoE", "IV"]] = [0, iv.sum()]
 
         return res.fillna(0)
+
+    def summary_statistic(self, s):
+        summary = self.summarize(s)
+        return summary.loc["Total", "IV"]
 
 
 class ContinuousPerformance(Performance):
