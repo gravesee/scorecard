@@ -2,11 +2,28 @@ from scorecard.transform import *
 import numpy as np
 from scorecard.performance import BinaryPerformance
 
+from scorecard.discretize import discretize
+import seaborn as sns
 
+df = sns.load_dataset('titanic')
+
+mod = discretize(df.drop(columns=['survived']), y=df.survived, max_leaf_nodes=6, min_samples_leaf=50)
+perf = BinaryPerformance(df.survived)
+
+z = perf.summarize(mod['pclass'].to_categorical(df['pclass']))
+print(z)
+
+z = perf.summarize(mod['fare'].to_categorical(df['fare']))
+print(z)
+
+
+quit()
 N = 1000000
 
 y = np.random.choice([0, 1], size=N, replace=True)
 w = np.random.random(N)
+
+
 
 
 

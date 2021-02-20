@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 import hashlib
 
+
 def series_cache(fun):
     def inner(self, s, cache=True):
         key = None
@@ -15,17 +16,20 @@ def series_cache(fun):
                 key = hashlib.md5(s.values).hexdigest()
             if self._cache.get(key, None) is not None:
                 return self._cache[key]
-        
+
         res = fun(self, s)
         if cache:
             self._cache[key] = res
         return res
+
     return inner
 
 
 class Performance(ABC):
     def __init__(self, y, w):
         self.y = pd.Series(y)
+        if w is None:
+            w = np.ones_like(y)
         self.w = pd.Series(w)
         self._cache = {}
 
@@ -37,9 +41,12 @@ class Performance(ABC):
     def summary_statistic(self):
         pass
 
+    def __iter__(self):
+        return iter((self.y, self.w))
+
 
 class BinaryPerformance(Performance):
-    def __init__(self, y, w) -> None:
+    def __init__(self, y, w=None) -> None:
         super().__init__(y, w)
 
     @series_cache
