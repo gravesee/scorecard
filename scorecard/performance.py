@@ -24,14 +24,16 @@ class BinaryPerformance(Performance):
             .rename(columns={0: "# 0s", 1: "# 1s"})
         )
         tots = cnts.sum(axis=1).rename("N")
-        pcts = (cnts / cnts.sum()).rename(columns={0: "% 0s", 1: "% 1s"})
-        woe = pd.Series(np.log(pcts["# 1s"] / pcts["# 0s"]), name="WoE")
-        
-        res = pd.concat([tots, cnts, pcts, woe], axis=1)
+        pcts = (cnts / cnts.sum()).rename(columns={"# 0s": "% 0s", "# 1s": "% 1s"})
+        woe = pd.Series(np.log(pcts["% 1s"] / pcts["% 0s"]), name="WoE")
+        iv = (woe * (pcts["% 1s"] - pcts["% 0s"])).rename("IV")
+
+        res = pd.concat([tots, cnts, pcts, woe, iv], axis=1)
         res.index = res.index.astype(str)
         res.loc["Total"] = res.sum(axis=0)
+        res.loc["Total", ["WoE", "IV"]] = [0, iv.sum()]
 
-        return res
+        return res.fillna(0)
 
 
 class ContinuousPerformance(Performance):
