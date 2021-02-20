@@ -30,11 +30,20 @@ v.collapse([0, 2])
 
 v.labels
 
+v.collapse([0,1])
+v.expand(0, 2)
 s = v.to_categorical(x)
 
-perf = BinaryPerformance(y, w)
+# perf = BinaryPerformance(y, w)
 
-%timeit perf.summarize(s, cache=False)
+from scorecard.variable import Variable
+
+var = Variable(v)
+
+# %timeit perf.summarize(s, cache=False)
+
+s = v.to_categorical(x)
+v.reset()
 
 quit()
 
