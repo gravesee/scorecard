@@ -1,6 +1,6 @@
 # a variable manages a series of transforms, history,
 # and allows for step 1, 2, NA, constraints, neutralize etc...
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 from .transform import ContinuousTransform, Transform
 import copy
 from .performance import Performance
@@ -123,6 +123,11 @@ class Variable:
         if (index < 0) or (index > len(labels) - 1):
             raise Exception(f"invalid level used in variable operation: {index}")
         self.set_constraint(index, index, "neu")
+    
+    def to_sparse(self, x: Optional[pd.Series] = None):
+        if x is None:
+            x = self.x
+        return self.transform.to_sparse(x)
 
     @undoable
     def collapse(self, indices):

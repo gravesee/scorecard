@@ -16,7 +16,9 @@ mod = Scorecard.discretize(
     df.drop(columns=["survived"]), perf=perf, max_leaf_nodes=6, min_samples_leaf=50
 )
 
-print(mod.summary())
+print(mod.to_sparse(step=[None]).shape)
+
+print(mod.summary()['Len'].sum())
 
 
 mod["sex"].increasing_constraints()
