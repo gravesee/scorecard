@@ -8,6 +8,16 @@ import scipy.sparse as sp
 import pickle
 
 
+def format_bin_label(n):
+    try:
+        if int(n) == n:
+            res = f"{int(n)}"
+        else:
+            res = f"{n:.2f}"
+    except:
+        res = str(n)
+    return res
+
 class Transform(ABC):
     def __init__(self, exceptions: List[Any], missing: Any):
         self.exceptions = exceptions
@@ -30,8 +40,8 @@ class Transform(ABC):
         return len(self.labels)
 
     def is_missing(self, x: pd.Series):
-        if np.isnan(self.missing):
-            return np.isnan(x)
+        if self.missing is np.nan:
+            return x.isnull()
         else:
             return x == self.missing
 
@@ -78,7 +88,7 @@ class Transform(ABC):
 
 class ContinuousTransform(Transform):
     def __init__(
-        self, breaks: List[float], exceptions: List[float], missing: float
+        self, breaks: List[float], exceptions: List[float], missing: float = np.nan
     ) -> None:
         self.breaks = breaks
         super().__init__(exceptions, missing)
@@ -97,7 +107,10 @@ class ContinuousTransform(Transform):
     def _labels(self):
         labels = []
         for start, stop in zip(self.breaks, self.breaks[1:]):
-            labels.append(str((start, stop)))
+            start = format_bin_label(start)
+            stop = format_bin_label(stop)
+
+            labels.append(f"({start}, {stop}]")
         return labels
 
     def collapse(self, indices: List[int]):
@@ -119,10 +132,7 @@ class ContinuousTransform(Transform):
         self.breaks = breaks
 
     def expand(self, index: int, value: float):
-        """expand bin into two bins
-
-
-        """
+        """expand bin into two bins"""
         breaks = copy.copy(self.breaks)
         breaks.insert(index, value)
         self.breaks = breaks
@@ -130,20 +140,20 @@ class ContinuousTransform(Transform):
     def _to_index(self, x: pd.Series) -> Tuple[np.ndarray, int]:
         out: np.ndarray = np.full_like(x, fill_value=np.nan, dtype=int)  # type: ignore
         for i, (start, stop) in enumerate(zip(self.breaks, self.breaks[1:])):
-            f = (x >= start) & (x <= stop)
+            f = (x > start) & (x <= stop)
             out[f] = i
 
         return out, i
 
 
 class CategoricalTransform(Transform):
-    def __init__(self, levels: List[Any], exceptions: List[Any], missing: float):
+    def __init__(self, levels: List[Any], exceptions: List[Any], missing: Any = ""):
         self.levels = [[x] for x in levels]
         super().__init__(exceptions, missing)
 
     @property
     def _labels(self):
-        return list(map(str, self.levels))
+        return list(map(lambda x: ', '.join(x), self.levels))
 
     def collapse(self, indices: List[int]):
         """collapse bins together

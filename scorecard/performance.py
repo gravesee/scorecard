@@ -34,7 +34,7 @@ class Performance(ABC):
         self._cache = {}
 
     @abstractmethod
-    def summarize(self, s: pd.Series, cache: bool):
+    def summarize(self, s: pd.Series, cache: bool = True):
         pass
 
     @abstractproperty
@@ -50,7 +50,7 @@ class BinaryPerformance(Performance):
         super().__init__(y, w)
 
     @series_cache
-    def summarize(self, s):
+    def summarize(self, s: pd.Series, cache: bool=True):
         cnts = (
             self.w.groupby([s, self.y])
             .count()

@@ -7,10 +7,24 @@ import seaborn as sns
 
 df = sns.load_dataset('titanic')
 
-mod = discretize(df.drop(columns=['survived']), y=df.survived, max_leaf_nodes=6, min_samples_leaf=50)
 perf = BinaryPerformance(df.survived)
 
-z = perf.summarize(mod['pclass'].to_categorical(df['pclass']))
+mod = discretize(df.drop(columns=['survived']), perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
+
+mod['sex'].collapse([0,1])
+
+print(mod['sex'])
+
+mod['sex'].expand(0)
+
+print(mod['sex'])
+
+print(mod['fare'])
+
+quit()
+# print(mod['fare'].labels)
+
+z = perf.summarize(mod['sex'].to_categorical(df['sex']))
 print(z)
 
 z = perf.summarize(mod['fare'].to_categorical(df['fare']))

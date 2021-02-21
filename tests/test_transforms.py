@@ -21,16 +21,13 @@ def breaks():
 
 def test_continuous_constructor(x, breaks):
     v = ContinuousTransform(breaks, [], np.nan)
-    assert True
+    assert True, "Constructor with all arguments"
+
+    v = ContinuousTransform(breaks, [], np.nan)
+    assert True, "Constructor without missing argument"
 
     with pytest.raises(TypeError):
         ContinuousTransform(breaks)
-
-    with pytest.raises(TypeError):
-        ContinuousTransform(breaks, [])
-
-    with pytest.raises(TypeError):
-        ContinuousTransform(breaks, missing=np.nan)
 
 
 def test_continuous_collapse(x, breaks):
