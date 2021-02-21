@@ -18,6 +18,7 @@ def format_bin_label(n):
         res = str(n)
     return res
 
+
 class Transform(ABC):
     def __init__(self, exceptions: List[Any], missing: Any):
         self.exceptions = exceptions
@@ -34,6 +35,7 @@ class Transform(ABC):
         for e in self.exceptions:
             labels.append(e)
         labels.append("Missing")
+
         return labels
 
     def __len__(self) -> int:
@@ -139,6 +141,7 @@ class ContinuousTransform(Transform):
 
     def _to_index(self, x: pd.Series) -> Tuple[np.ndarray, int]:
         out: np.ndarray = np.full_like(x, fill_value=np.nan, dtype=int)  # type: ignore
+        i = 0
         for i, (start, stop) in enumerate(zip(self.breaks, self.breaks[1:])):
             f = (x > start) & (x <= stop)
             out[f] = i
@@ -148,12 +151,12 @@ class ContinuousTransform(Transform):
 
 class CategoricalTransform(Transform):
     def __init__(self, levels: List[Any], exceptions: List[Any], missing: Any = ""):
-        self.levels = [[x] for x in levels]
+        self.levels = [[x] for x in sorted(levels)]
         super().__init__(exceptions, missing)
 
     @property
     def _labels(self):
-        return list(map(lambda x: ', '.join(x), self.levels))
+        return list(map(lambda x: ", ".join(x), self.levels))
 
     def collapse(self, indices: List[int]):
         """collapse bins together
@@ -177,7 +180,7 @@ class CategoricalTransform(Transform):
         self.levels = sorted(self.levels)
 
     def _to_index(self, x: pd.Series) -> Tuple[np.ndarray, int]:
-        i, j = 0, 0
+        i = 0
         out = np.full_like(x, fill_value=np.nan, dtype=int)
         for i, els in enumerate(self.levels):
             out[np.isin(x, els)] = i  # type: ignore

@@ -1,3 +1,4 @@
+from scorecard.scorecard import Scorecard
 from scorecard.transform import *
 import numpy as np
 from scorecard.performance import BinaryPerformance
@@ -5,29 +6,44 @@ from scorecard.performance import BinaryPerformance
 from scorecard.discretize import discretize
 import seaborn as sns
 
-df = sns.load_dataset('titanic')
+df = sns.load_dataset("titanic")
 
 perf = BinaryPerformance(df.survived)
 
-mod = discretize(df.drop(columns=['survived']), perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
+# mod = discretize(df.drop(columns=['survived']), perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
-mod['sex'].collapse([0,1])
+mod = Scorecard.discretize(
+    df.drop(columns=["survived"]), perf=perf, max_leaf_nodes=6, min_samples_leaf=50
+)
 
-print(mod['sex'])
+print(mod.summary())
 
-mod['sex'].expand(0)
 
-print(mod['sex'])
+mod["sex"].increasing_constraints()
+print(mod["sex"])
 
-print(mod['fare'])
+mod["sex"].collapse([0, 1])
+print(mod["sex"])
+
+# print(mod['sex'])
+
+mod["sex"].expand(0)
+print(mod["sex"])
+
+mod["sex"].clear_constraints()
+print(mod["sex"])
+
+# print(mod['sex'])
+
+print(mod["fare"])
 
 quit()
 # print(mod['fare'].labels)
 
-z = perf.summarize(mod['sex'].to_categorical(df['sex']))
+z = perf.summarize(mod["sex"].to_categorical(df["sex"]))
 print(z)
 
-z = perf.summarize(mod['fare'].to_categorical(df['fare']))
+z = perf.summarize(mod["fare"].to_categorical(df["fare"]))
 print(z)
 
 
@@ -36,10 +52,6 @@ N = 1000000
 
 y = np.random.choice([0, 1], size=N, replace=True)
 w = np.random.random(N)
-
-
-
-
 
 
 v = ContinuousTransform([-3, -2, -1, 0, 1, 2, 3], [-998, -999], np.nan)
@@ -53,15 +65,13 @@ x = np.random.randn(N)
 pd.Series(v.to_index(x)).value_counts()
 
 
-
 v.labels
 v.collapse([0, 2])
 
 
-
 v.labels
 
-v.collapse([0,1])
+v.collapse([0, 1])
 v.expand(0, 2)
 s = v.to_categorical(x)
 
@@ -77,7 +87,6 @@ s = v.to_categorical(x)
 v.reset()
 
 quit()
-
 
 
 v = CategoricalTransform(list("abcde"), ["Z"], -998)

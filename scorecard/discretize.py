@@ -58,7 +58,7 @@ def discretize(
             for el in list(df[col].unique()):  # type: ignore
                 if el not in (excepts + [missing]):
                     levels.append(el)
-            tf = CategoricalTransform(levels, excepts, missing)
+            tf = CategoricalTransform(sorted(levels), excepts, missing)
 
         res[col] = Variable(df[col], perf, tf)
 
