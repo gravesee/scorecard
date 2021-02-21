@@ -8,17 +8,31 @@ import seaborn as sns
 
 df = sns.load_dataset("titanic")
 
+X = df.drop(columns=["survived"])
 perf = BinaryPerformance(df.survived)
 
 # mod = discretize(df.drop(columns=['survived']), perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
-mod = Scorecard.discretize(
-    df.drop(columns=["survived"]), perf=perf, max_leaf_nodes=6, min_samples_leaf=50
-)
+mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
-print(mod.to_sparse(step=[None]).shape)
+mod['pclass'].step = 1
+mod['sex'].step = 1
 
-print(mod.summary()['Len'].sum())
+mod.fit(X, perf, alpha=1)
+
+phat = mod.predict(X)
+
+from sklearn.metrics import roc_auc_score
+
+print(roc_auc_score(df.survived, phat))
+
+quit()
+
+M = mod.to_sparse(step=[None])
+from scipy.sparse import hstack
+
+print(hstack([M, np.ones(M.shape[0]).reshape(-1, 1)]).shape)
+
 
 
 mod["sex"].increasing_constraints()

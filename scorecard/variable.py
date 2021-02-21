@@ -18,13 +18,11 @@ def undoable(fun):
 class Variable:
     def __init__(
         self,
-        x: pd.Series,
-        perf: Performance,
+        name: str,
         transform: Transform,
         neutralize_missing: bool = True,
     ):
-        self.x = x
-        self.perf = perf
+        self.name = name
         self.transform = transform
 
         self._constraints: Dict[str, Tuple[str, str]] = {}
@@ -34,10 +32,6 @@ class Variable:
 
         if neutralize_missing:
             self._constraints["Missing"] = ("Missing", "neu")
-
-    @property
-    def name(self):
-        return self.x.name
 
     @property
     def type(self):
@@ -124,9 +118,7 @@ class Variable:
             raise Exception(f"invalid level used in variable operation: {index}")
         self.set_constraint(index, index, "neu")
     
-    def to_sparse(self, x: Optional[pd.Series] = None):
-        if x is None:
-            x = self.x
+    def to_sparse(self, x: pd.Series):
         return self.transform.to_sparse(x)
 
     @undoable
@@ -145,15 +137,15 @@ class Variable:
         if len(self._history) > 0:
             self.transform = self._history.pop()
 
-    def __str__(self):
-        s = self.transform.to_categorical(self.x)
-        res = self.perf.summarize(s)
+    def display(self, x, perf):
+        s = self.transform.to_categorical(x)
+        res = perf.summarize(s)
         con = self.get_constraint_repr()
 
         return str(pd.concat([res, con], axis=1).fillna(""))  # type: ignore
 
-    def summary(self):
-        name, stat = self.perf.summary_statistic(self.x)
+    def summary(self, x, perf):
+        name, stat = perf.summary_statistic(x)
         return {
             "Variable": self.name,
             "Step": self.step,

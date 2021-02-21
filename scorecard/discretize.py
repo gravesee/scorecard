@@ -60,6 +60,6 @@ def discretize(
                     levels.append(el)
             tf = CategoricalTransform(sorted(levels), excepts, missing)
 
-        res[col] = Variable(df[col], perf, tf)
+        res[col] = Variable(col, tf)
 
     return res
