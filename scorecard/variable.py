@@ -141,7 +141,7 @@ class Variable:
         res = perf.summarize(s)
         con = self.get_constraint_repr()
 
-        return str(pd.concat([res, con], axis=1).fillna(""))  # type: ignore
+        return pd.concat([res, con], axis=1).fillna("")  # type: ignore
 
     def summary(self, x, perf):
         name, stat = perf.summary_statistic(x)

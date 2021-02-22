@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Tuple
 import copy
 
 import numexpr as ne
@@ -12,6 +12,7 @@ from .model import Model
 from .performance import Performance
 from .variable import Variable
 
+EvalSets = Optional[List[Tuple[pd.DataFrame, Performance]]]
 
 class Scorecard:
     @classmethod
@@ -21,18 +22,34 @@ class Scorecard:
         perf: Performance,
         missing: float = np.nan,
         exceptions: Optional[Union[Dict[str, List[Any]], List[Any]]] = None,
+        keep_data: bool = True,
         **kwargs,
     ):
         variables = discretize(df, perf, missing, exceptions, **kwargs)
-        return cls(variables)
+        if keep_data:
+            eval_sets = [(df, perf)]
+        else:
+            eval_sets = None
+        return cls(variables, eval_sets)
 
-    def __init__(self, variables: Dict[str, Variable]):
+    def __init__(self, variables: Dict[str, Variable], eval_sets = None):
         self._model = Model(None, variables, name="init")
         self.variables = variables
         self._models = []  # list of all fitted models
 
-    def summary(self, df: pd.DataFrame, perf: Performance):
+        self.eval_sets: EvalSets = eval_sets
+    
+    @property
+    def training_data(self):
+        if self.eval_sets is None:
+            raise Exception("no eval_sets registered with Scorecard.")
+        return self.eval_sets[0]
+
+    def summary(self, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None):
         # create summary dataframe for each variable
+        if df is None:
+            df, perf = self.training_data
+        
         res = []
         for v in self.variables.values():
             res.append(v.summary(df[v.name], perf))
@@ -40,9 +57,11 @@ class Scorecard:
 
     def to_sparse(
         self,
-        df: pd.DataFrame,
+        df: Optional[pd.DataFrame] = None,
         step: List[Optional[int]] = [1],
     ):
+        if df is None:
+            df, _ = self.training_data
         res = []
         for k, v in self.variables.items():
             if v.step in step:
@@ -116,7 +135,9 @@ class Scorecard:
         else:
             raise Exception("model_id must be model name or a model index")
 
-    def predict(self, df: pd.DataFrame):
+    def predict(self, df: Optional[pd.DataFrame] = None):
+        if df is None:
+            df, _ = self.training_data
         if self.model is None:
             raise Exception("no models have been fit yet")
         M = self.to_sparse(df)
@@ -124,11 +145,15 @@ class Scorecard:
 
     def fit(
         self,
-        df: pd.DataFrame,
-        perf: Performance,
+        df: Optional[pd.DataFrame] = None,
+        perf: Optional[Performance] = None,
         offset: Optional[np.ndarray] = None,
         alpha: float = 0.001,
     ):
+
+        if df is None or perf is None:
+            df, perf = self.training_data
+
         M = self.to_sparse(df)
 
         if offset is None:
@@ -150,6 +175,18 @@ class Scorecard:
         )
 
         self.save_model(Model(obj, self.variables, f"model_{len(self._models):02d}"))
+    
+    def display_variable(self, var: str, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None):
+        if df is None or perf is None:
+            eval_sets = self.eval_sets
+        else:
+            eval_sets = [(df, perf)]
+        
+        res = []
+        for df, perf in eval_sets:
+            res.append(self[var].display(df[var], perf))
+        
+        return pd.concat(res, axis=0)
 
 
 def sigmoid(x):

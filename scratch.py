@@ -24,7 +24,9 @@ mod['fare'].step = 1
 # mod["pclass"].neutralize(0)
 mod["pclass"].set_constraint(0, 2, "=")
 
-mod.fit(X, perf, alpha=1)
+mod.fit(alpha=1)
+
+print(mod.display_variable('pclass'))
 
 print(zip_coefs_and_variables(mod.model.coefs, mod.variables))
 
