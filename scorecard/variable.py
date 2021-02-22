@@ -50,18 +50,17 @@ class Variable:
             raise Exception("`step` must be one of {1, 2, None}")
         self._step = value
 
-    def get_constraints(self, value) -> List[Dict]:
+    def get_constraints(self) -> Tuple[int, List[Dict]]:
         # translate labels to integer positions if the labels still exist
         labels = self.transform.labels
         res = []
         for base, (target, op) in self._constraints.items():
             if base in labels and target in labels:
-                type_ = "eq" if op == "=" else "ineq"
                 i, j = labels.index(target), labels.index(base)
-                indices = (j, i) if op == "<" else (i, j)
-                res.append({"type": type_, "indices": indices, "len": len(labels)})
+                indices = (j, i) if op == ">" else (i, j)
+                res.append({"type": op, "indices": indices})
 
-        return res
+        return len(labels), res
 
     def get_constraint_repr(self):
         """return series representation of constraints for display purposes"""

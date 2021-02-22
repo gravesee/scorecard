@@ -2,6 +2,7 @@ from scorecard.scorecard import Scorecard
 from scorecard.transform import *
 import numpy as np
 from scorecard.performance import BinaryPerformance
+from scorecard.model import zip_coefs_and_variables
 
 from scorecard.discretize import discretize
 import seaborn as sns
@@ -17,14 +18,40 @@ mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
 mod['pclass'].step = 1
 mod['sex'].step = 1
+mod['fare'].step = 1
+
+# mod["pclass"].decreasing_constraints()
+# mod["pclass"].neutralize(0)
+mod["pclass"].set_constraint(0, 2, "=")
 
 mod.fit(X, perf, alpha=1)
+
+print(zip_coefs_and_variables(mod.model.coefs, mod.variables))
+
+quit()
+print("COEFS", mod.model.coefs)
 
 phat = mod.predict(X)
 
 from sklearn.metrics import roc_auc_score
 
 print(roc_auc_score(df.survived, phat))
+print(mod.models)
+# print(mod.model.coefs)
+
+mod['sex'].step = None
+mod.fit(X, perf, alpha=1)
+print(mod.model.coefs)
+phat = mod.predict(X)
+print(roc_auc_score(df.survived, phat))
+
+print(mod.models)
+
+mod.load_model("model_00")
+phat = mod.predict(X)
+print(roc_auc_score(df.survived, phat))
+
+
 
 quit()
 

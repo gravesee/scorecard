@@ -1,4 +1,5 @@
 from typing import Any, Dict, List, Optional, Union
+import copy
 
 import numexpr as ne
 import numpy as np
@@ -26,8 +27,9 @@ class Scorecard:
         return cls(variables)
 
     def __init__(self, variables: Dict[str, Variable]):
+        self._model = Model(None, variables, name="init")
         self.variables = variables
-        self._models = []
+        self._models = []  # list of all fitted models
 
     def summary(self, df: pd.DataFrame, perf: Performance):
         # create summary dataframe for each variable
@@ -51,14 +53,74 @@ class Scorecard:
     def __getitem__(self, key):
         return self.variables[key]
 
+    @property
+    def model(self) -> Model:
+        return self._model
+
+    @model.setter
+    def model(self, mod: Model):
+        self._model = mod
+
+    @property
+    def models(self):
+        return [m.name for m in self._models]
+
+    def get_constraints(self, step=[1]):
+        """get constraints for SLQSP optimizer"""
+        # {"type": type_, "indices": indices, "len": len(labels)}
+        i, res = 0, []
+        for v in self.variables.values():
+            if v.step in step:
+                n, constraints = v.get_constraints()
+                for constr in constraints:
+                    # create constraint dict for SLQSP optimizer
+                    base, target = constr["indices"]
+                    type_ = constr["type"]
+
+                    if type_ == "neu":
+                        fun = eval(f"lambda x: x[{base + i}]")
+                        res.append({"type": "eq", "fun": fun})
+                    else:
+                        fun = eval(f"lambda x: x[{base + i}] - x[{target + i}]")
+                        if type_ == "=":
+                            res.append({"type": "eq", "fun": fun})
+                        else:
+                            res.append({"type": "ineq", "fun": fun})
+                i += n
+        
+        return res
+
+    def save_model(self, mod: Model):
+        self._models.append(mod)
+        self.model = mod
+
+    def load_model(self, model_id: Union[str, int]):
+        """load fitted model and variables as they existed when the selected model was fit"""
+        if isinstance(model_id, str):
+            model = None
+            for m in self._models:
+                if m.name == model_id:
+                    model = m
+            if model is not None:
+                self.model = model
+                self.variables = copy.deepcopy(model.variables)
+            else:
+                raise Exception(f"no model found with name: {model_id}")
+        elif isinstance(model_id, int):
+            if (model_id < len(self._models) - 1) and (model_id > 0):
+                model = self._models[model_id]
+                self.model = model
+                self.variables = copy.deepcopy(model.variables)
+            else:
+                raise Exception(f"invalid model index: {model_id}")
+        else:
+            raise Exception("model_id must be model name or a model index")
+
     def predict(self, df: pd.DataFrame):
-        if len(self._models) == 0:
+        if self.model is None:
             raise Exception("no models have been fit yet")
-
-        obj = self._models[-1]
         M = self.to_sparse(df)
-
-        return M @ obj.obj.x
+        return M @ self.model.coefs
 
     def fit(
         self,
@@ -74,17 +136,20 @@ class Scorecard:
 
         y, w = perf
 
+        constraints = self.get_constraints()
+        
         coefs = np.zeros(M.shape[1])
+        
         obj = minimize(
             logistic_loss,
             coefs,
             (M, y.values, w.values, offset, alpha),
             jac=logistic_gradient,
+            method="SLSQP",
+            constraints=constraints,
         )
 
-        self._models.append(
-            Model(obj, self.variables, f"model_{len(self._models):02d}")
-        )
+        self.save_model(Model(obj, self.variables, f"model_{len(self._models):02d}"))
 
 
 def sigmoid(x):
