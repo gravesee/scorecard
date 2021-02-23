@@ -42,7 +42,7 @@ class Performance(ABC):
     def summary_statistic(self):
         pass
 
-    def __iter__(self):
+    def __iter__(self) -> Tuple[pd.Series, pd.Series]:
         return iter((self.y, self.w))
 
 

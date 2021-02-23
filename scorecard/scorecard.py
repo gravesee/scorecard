@@ -14,6 +14,7 @@ from .variable import Variable
 
 EvalSets = Optional[List[Tuple[pd.DataFrame, Performance]]]
 
+
 class Scorecard:
     @classmethod
     def discretize(
@@ -27,29 +28,53 @@ class Scorecard:
     ):
         variables = discretize(df, perf, missing, exceptions, **kwargs)
         if keep_data:
-            eval_sets = [(df, perf)]
+            return cls(variables, df, perf)
         else:
-            eval_sets = None
-        return cls(variables, eval_sets)
+            return cls(variables)
 
-    def __init__(self, variables: Dict[str, Variable], eval_sets = None):
+    def __init__(
+        self,
+        variables: Dict[str, Variable],
+        data: Optional[pd.DataFrame] = None,
+        perf: Optional[Performance] = None,
+    ):
         self._model = Model(None, variables, name="init")
         self.variables = variables
         self._models = []  # list of all fitted models
 
-        self.eval_sets: EvalSets = eval_sets
-    
-    @property
-    def training_data(self):
-        if self.eval_sets is None:
-            raise Exception("no eval_sets registered with Scorecard.")
-        return self.eval_sets[0]
+        self.data: Optional[pd.DataFrame] = data
+        self.perf: Optional[Performance] = perf
 
-    def summary(self, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None):
+        self._eval_sets: EvalSets = None
+
+    @property
+    def eval_sets(self):
+        return self._eval_sets
+
+    @eval_sets.setter
+    def eval_sets(self, eval_sets: EvalSets):
+        # TODO: do some checks here of data and perf
+        self._eval_sets = eval_sets
+
+    def _check_data(self, df, perf):
+        args_populated = df is not None and perf is not None
+        self_populated = self.data is not None and self.perf is not None
+
+        if args_populated:
+            return df, perf
+        elif self_populated:
+            return self.data, self.perf
+        else:
+            raise Exception(
+                "df and perf must be provided together or data, perf attributes must be set in Scorecard"
+            )
+
+    def summary(
+        self, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None
+    ):
         # create summary dataframe for each variable
-        if df is None:
-            df, perf = self.training_data
-        
+        df, perf = self._check_data(df, perf)
+
         res = []
         for v in self.variables.values():
             res.append(v.summary(df[v.name], perf))
@@ -60,8 +85,9 @@ class Scorecard:
         df: Optional[pd.DataFrame] = None,
         step: List[Optional[int]] = [1],
     ):
-        if df is None:
-            df, _ = self.training_data
+        if df is None and self.data is not None:
+            df = self.data
+
         res = []
         for k, v in self.variables.items():
             if v.step in step:
@@ -106,7 +132,7 @@ class Scorecard:
                         else:
                             res.append({"type": "ineq", "fun": fun})
                 i += n
-        
+
         return res
 
     def save_model(self, mod: Model):
@@ -136,8 +162,8 @@ class Scorecard:
             raise Exception("model_id must be model name or a model index")
 
     def predict(self, df: Optional[pd.DataFrame] = None):
-        if df is None:
-            df, _ = self.training_data
+        if df is None and self.data is not None:
+            df = self.data
         if self.model is None:
             raise Exception("no models have been fit yet")
         M = self.to_sparse(df)
@@ -151,41 +177,44 @@ class Scorecard:
         alpha: float = 0.001,
     ):
 
-        if df is None or perf is None:
-            df, perf = self.training_data
+        df, perf = self._check_data(df, perf)
 
         M = self.to_sparse(df)
 
         if offset is None:
             offset = np.zeros(M.shape[0])
 
-        y, w = perf
-
         constraints = self.get_constraints()
-        
+
         coefs = np.zeros(M.shape[1])
-        
+
         obj = minimize(
             logistic_loss,
             coefs,
-            (M, y.values, w.values, offset, alpha),
+            (M, perf.y.values, perf.w.values, offset, alpha),
             jac=logistic_gradient,
             method="SLSQP",
             constraints=constraints,
         )
 
         self.save_model(Model(obj, self.variables, f"model_{len(self._models):02d}"))
-    
-    def display_variable(self, var: str, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None):
-        if df is None or perf is None:
-            eval_sets = self.eval_sets
-        else:
-            eval_sets = [(df, perf)]
-        
-        res = []
-        for df, perf in eval_sets:
-            res.append(self[var].display(df[var], perf))
-        
+
+    def display_variable(
+        self,
+        var: str,
+        df: Optional[pd.DataFrame] = None,
+        perf: Optional[Performance] = None,
+        eval_sets: bool = False,
+    ):
+        df, perf = self._check_data(df, perf)
+
+        # TODO: merge fit data
+        res = [self[var].display(df[var], perf)]
+
+        if eval_sets and self.eval_sets is not None:
+            for df, perf in self.eval_sets:
+                res.append(self[var].display(df[var], perf))
+
         return pd.concat(res, axis=0)
 
 

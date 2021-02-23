@@ -16,6 +16,8 @@ perf = BinaryPerformance(df.survived)
 
 mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
+mod.eval_sets = [(X, perf)]
+
 mod['pclass'].step = 1
 mod['sex'].step = 1
 mod['fare'].step = 1
@@ -26,7 +28,7 @@ mod["pclass"].set_constraint(0, 2, "=")
 
 mod.fit(alpha=1)
 
-print(mod.display_variable('pclass'))
+print(mod.display_variable('pclass', eval_sets=True))
 
 print(zip_coefs_and_variables(mod.model.coefs, mod.variables))
 
