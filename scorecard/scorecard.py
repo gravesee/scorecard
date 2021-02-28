@@ -33,7 +33,7 @@ class Scorecard:
         return cls(variables, eval_sets)
 
     def __init__(self, variables: Dict[str, Variable], eval_sets = None):
-        self._model = Model(None, variables, name="init")
+        self._model = Model(None, None, variables, name="init")
         self.variables = variables
         self._models = []  # list of all fitted models
 
@@ -141,27 +141,28 @@ class Scorecard:
         if self.model is None:
             raise Exception("no models have been fit yet")
         M = self.to_sparse(df)
-        return M @ self.model.coefs
+        return M @ self.model.step1.x
 
-    def fit(
+    def _fit(
         self,
         df: Optional[pd.DataFrame] = None,
         perf: Optional[Performance] = None,
         offset: Optional[np.ndarray] = None,
         alpha: float = 0.001,
+        step = [1],
     ):
 
         if df is None or perf is None:
             df, perf = self.training_data
 
-        M = self.to_sparse(df)
+        M = self.to_sparse(df, step=step)
 
         if offset is None:
             offset = np.zeros(M.shape[0])
 
         y, w = perf
 
-        constraints = self.get_constraints()
+        constraints = self.get_constraints(step=step)
         
         coefs = np.zeros(M.shape[1])
         
@@ -174,7 +175,34 @@ class Scorecard:
             constraints=constraints,
         )
 
-        self.save_model(Model(obj, self.variables, f"model_{len(self._models):02d}"))
+        preds = M @ obj.x
+        
+        return obj, preds
+
+    def fit(
+        self,
+        df: Optional[pd.DataFrame] = None,
+        perf: Optional[Performance] = None,
+        offset: Optional[np.ndarray] = None,
+        alpha: float = 0.001,
+    ):
+
+
+        step1, preds = self._fit(df, perf, offset, alpha, step=[1])
+
+        step2 = None
+        if self.has_step_two_variables():
+            step2, _ = self._fit(df, perf, offset, alpha, step=[2])
+        
+        # TODO: call fit again, passing in an offset and step [2]
+        # opportunity to re-use the exact same function 
+        # TODO: refactor to _fit and fit
+        # _fit can be re-used, fit calls _fit twice and saves the model object
+
+        self.save_model(Model(step1, step2, self.variables, f"model_{len(self._models):02d}"))
+    
+    def has_step_two_variables(self) -> bool:
+        return any([v.step == 2 for v in self.variables.values()])
     
     def display_variable(self, var: str, df: Optional[pd.DataFrame] = None, perf: Optional[Performance] = None):
         if df is None or perf is None:
@@ -186,9 +214,14 @@ class Scorecard:
         for df, perf in eval_sets:
             res.append(self[var].display(df[var], perf))
         
-        return pd.concat(res, axis=0)
-
-
+        # add model fit information
+        coefs = self.model.coefs(step=[1]).get(var, None)
+        if coefs is not None:
+            return pd.concat([*res, coefs.rename("Preds")], axis=1)
+        else:
+            return pd.concat(res, axis=1)
+    
+    
 def sigmoid(x):
     return ne.evaluate("1 / (1 + exp(-x))")
 

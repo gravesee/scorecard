@@ -18,20 +18,32 @@ mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
 mod['pclass'].step = 1
 mod['sex'].step = 1
-mod['fare'].step = 1
+mod['fare'].step = 2
 
 # mod["pclass"].decreasing_constraints()
 # mod["pclass"].neutralize(0)
-mod["pclass"].set_constraint(0, 2, "=")
+mod["pclass"].decreasing_constraints()
+mod["pclass"].neutralize(1)
+mod["pclass"].set_constraint(0, 2, "<")
 
-mod.fit(alpha=1)
 
+
+mod.fit(alpha=0.1)
+
+print("in here!")
 print(mod.display_variable('pclass'))
 
-print(zip_coefs_and_variables(mod.model.coefs, mod.variables))
+print(mod.display_variable('fare'))
 
+print(mod.display_variable('sex'))
+
+print(mod.predict())
 quit()
-print("COEFS", mod.model.coefs)
+
+print(zip_coefs_and_variables(mod.model.obj.x, mod.variables))
+
+# quit()
+# print("COEFS", mod.model.coefs)
 
 phat = mod.predict(X)
 

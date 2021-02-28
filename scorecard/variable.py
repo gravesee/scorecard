@@ -142,7 +142,7 @@ class Variable:
         con = self.get_constraint_repr()
 
         return pd.concat([res, con], axis=1).fillna("")  # type: ignore
-
+    
     def summary(self, x, perf):
         name, stat = perf.summary_statistic(x)
         return {
