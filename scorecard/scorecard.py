@@ -14,6 +14,12 @@ from .variable import Variable
 
 EvalSets = Optional[List[Tuple[pd.DataFrame, Performance]]]
 
+# TODO: figure out how to keep variables in sync across scorecard and models
+# after model is registered, when collapsing or expanding variables, currently fit_info
+# is being taken from the fitted models prior to the variables being altered. Need
+# to somehow invalidated the fit info for the variable when it has been adjusted...
+# or when adjustments are made need to set model to None.... 
+
 class Scorecard:
     @classmethod
     def discretize(
@@ -140,8 +146,7 @@ class Scorecard:
             df, _ = self.training_data
         if self.model is None:
             raise Exception("no models have been fit yet")
-        M = self.to_sparse(df)
-        return M @ self.model.step1.x
+        return self.model.predict(df)
 
     def _fit(
         self,
@@ -214,12 +219,12 @@ class Scorecard:
         for df, perf in eval_sets:
             res.append(self[var].display(df[var], perf))
         
-        # add model fit information
-        coefs = self.model.coefs(step=[1]).get(var, None)
-        if coefs is not None:
-            return pd.concat([*res, coefs.rename("Preds")], axis=1)
+        fit_info = self.model.display(var)
+        if fit_info is not None:
+            return pd.concat([*res, fit_info], axis=1)
         else:
             return pd.concat(res, axis=1)
+
     
     
 def sigmoid(x):
