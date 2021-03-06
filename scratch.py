@@ -16,10 +16,11 @@ perf = BinaryPerformance(df.survived)
 
 mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
-# mod['pclass'].step = 1
-# mod['sex'].step = 1
-# mod['fare'].step = 1
+mod['pclass'].step = 1
+mod['sex'].step = 1
+mod['fare'].step = 1
 
+mod.fit()
 
 mod.display_variable('fare')
 mod['fare'].collapse([4,5])

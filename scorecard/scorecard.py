@@ -219,12 +219,16 @@ class Scorecard:
         for df, perf in eval_sets:
             res.append(self[var].display(df[var], perf))
         
-        fit_info = self.model.display(var)
-        if fit_info is not None:
-            return pd.concat([*res, fit_info], axis=1)
+        # check if current variable hash equals the model variable hash,
+        # if so, then the fit_info can be applied, otherwise it should be empty
+        if hash(self.variables[var]) == hash(self.model.variables[var]):
+            fit_info = self.model.display(var)
+            if fit_info is not None:
+                out =  pd.concat([*res, fit_info], axis=1)
         else:
-            return pd.concat(res, axis=1)
-
+            out = pd.concat(res, axis=1)
+        
+        return out.fillna('')
     
     
 def sigmoid(x):

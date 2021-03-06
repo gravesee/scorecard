@@ -32,7 +32,11 @@ class Variable:
 
         if neutralize_missing:
             self._constraints["Missing"] = ("Missing", "neu")
-
+    
+    def __hash__(self):
+        constraints = tuple(map(tuple, self._constraints))
+        return hash((self.name, hash(self.transform), constraints))
+    
     @property
     def type(self):
         if isinstance(self.transform, ContinuousTransform):

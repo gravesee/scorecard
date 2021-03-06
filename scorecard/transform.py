@@ -94,6 +94,9 @@ class ContinuousTransform(Transform):
     ) -> None:
         self.breaks = breaks
         super().__init__(exceptions, missing)
+    
+    def __hash__(self):
+        return hash((tuple(self.breaks), tuple(self.exceptions), self.missing))
 
     @property
     def breaks(self):
@@ -151,8 +154,12 @@ class ContinuousTransform(Transform):
 
 class CategoricalTransform(Transform):
     def __init__(self, levels: List[Any], exceptions: List[Any], missing: Any = ""):
-        self.levels = [[x] for x in sorted(levels)]
+        self.levels: List[List] = [[x] for x in sorted(levels)]
         super().__init__(exceptions, missing)
+    
+    def __hash__(self):
+        levels = tuple(map(tuple(self.levels)))
+        return hash((levels, tuple(self.exceptions), self.missing))
 
     @property
     def _labels(self):
