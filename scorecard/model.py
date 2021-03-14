@@ -6,6 +6,7 @@ import copy
 import numpy as np
 import pandas as pd
 from scipy.sparse import hstack
+from pandas.io.formats.style import Styler
 
 
 def iter_coefs(coefs):
@@ -30,6 +31,11 @@ class Model:
         self.variables = copy.deepcopy(variables)
         self.name = name
 
+        s = Styler(pd.DataFrame())
+        s = s.bar(subset=['Preds'], align='zero', color='red')
+        s = s.bar(subset=['Step2'], align='zero', color='blue')
+        self._style = s.export()
+
     def coefs(self, step=1):
         coefs = self.step1.x if step == 1 else self.step2.x
         return zip_coefs_and_variables(coefs, self.variables, step=step)
@@ -47,17 +53,23 @@ class Model:
         M = self.to_categorical(df, step=step)
         return M @ obj.x
 
-    def display(self, var: str):
-        ix = self.variables[var].transform.labels
+    def fit_info(self, var: Variable):
+        ix = self.variables[var.name].transform.labels
+        res = pd.DataFrame(index=ix, columns=["Preds", "Step2"], dtype=float)
 
-        res = pd.DataFrame(index=ix, columns=["Preds", "Step2"])
+        # check if current variable hash equals the model variable hash,
+        # if so, then the fit_info can be applied, otherwise it should be empty
+        if hash(var) != hash(self.variables[var.name]):
+            return res
 
         if self.step1 is not None:
-            step1 = self.coefs(1).get(var, None)
-            res["Preds"] = step1
+            res["Preds"] = self.coefs(1).get(var.name, None)
 
         if self.step2 is not None:
-            step2 = self.coefs(2).get(var, None)
-            res["Step2"] = step2
+            res["Step2"] = self.coefs(2).get(var.name, None)
 
-        return res
+        return res.fillna(0)
+    
+    @property
+    def style(self):
+        return self._style

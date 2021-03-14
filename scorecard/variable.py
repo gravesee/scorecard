@@ -1,9 +1,8 @@
 # a variable manages a series of transforms, history,
 # and allows for step 1, 2, NA, constraints, neutralize etc...
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 from .transform import ContinuousTransform, Transform
 import copy
-from .performance import Performance
 import pandas as pd
 
 
@@ -127,10 +126,12 @@ class Variable:
     @undoable
     def collapse(self, indices):
         self.transform.collapse(indices)
+        self.clear_constraints()
 
     @undoable
     def expand(self, index, **kwargs):
         self.transform.expand(index, **kwargs)
+        self.clear_constraints()
 
     @undoable
     def reset(self):

@@ -1,8 +1,10 @@
 from scorecard.scorecard import Scorecard
+
 from scorecard.transform import *
 import numpy as np
 from scorecard.performance import BinaryPerformance
 from scorecard.model import zip_coefs_and_variables
+from scorecard.scorecard import adjust
 
 from scorecard.discretize import discretize
 import seaborn as sns
@@ -15,15 +17,20 @@ perf = BinaryPerformance(df.survived)
 # mod = discretize(df.drop(columns=['survived']), perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 
 mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
-
 mod['pclass'].step = 1
 mod['sex'].step = 1
-mod['fare'].step = 1
+mod['fare'].step = 2
+
+mod.fit()
+mod.display_variable()
+
+adjust(mod)
 
 mod.fit()
 
+# mod['fare'].undo()
 mod.display_variable('fare')
-mod['fare'].collapse([4,5])
+mod['fare'].collapse([0,2])
 mod.display_variable('fare')
 
 
@@ -164,3 +171,25 @@ x = np.random.choice(list("abdcde"), size=10000, replace=True)
 v.to_index(pd.Series(x))
 v.to_categorical(pd.Series(x))
 v.to_sparse(pd.Series(x))
+
+
+
+## cycler
+import io
+data = """
+v1,v2,v3
+1,2,3
+4,5,6
+7,8,9
+"""
+
+with open('test.csv', 'w') as fout:
+    fout.write(data)
+
+from pyarrow import csv
+opts = csv.ConvertOptions
+csv.read_csv('test.csv', )
+
+import pyarrow.dataset as ds
+for chunk in csv.open_csv('test.csv'):
+    ds.dataset(chunk)

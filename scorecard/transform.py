@@ -158,7 +158,7 @@ class CategoricalTransform(Transform):
         super().__init__(exceptions, missing)
     
     def __hash__(self):
-        levels = tuple(map(tuple(self.levels)))
+        levels = tuple(map(tuple, (self.levels)))
         return hash((levels, tuple(self.exceptions), self.missing))
 
     @property

@@ -5,6 +5,7 @@ from typing import Tuple
 import pandas as pd
 import numpy as np
 import hashlib
+from pandas.io.formats.style import Styler
 
 
 def series_cache(fun):
@@ -50,7 +51,10 @@ class BinaryPerformance(Performance):
     def __init__(self, y, w=None) -> None:
         super().__init__(y, w)
 
-    @series_cache
+        s = Styler(pd.DataFrame())
+        self._style = s.bar(subset=['WoE'], align='zero', color='red').export()
+
+    # @series_cache
     def summarize(self, x: pd.Series, cache: bool = True):
         cnts = (
             self.w.groupby([x, self.y])
@@ -77,7 +81,11 @@ class BinaryPerformance(Performance):
     def summary_statistic(self, s) -> Tuple[str, float]:
         summary = self.summarize(s)
         return "IV", summary.loc["Total", "IV"]
-
+    
+    @property
+    def style(self):
+        return self._style
+        
 
 class ContinuousPerformance(Performance):
     pass
