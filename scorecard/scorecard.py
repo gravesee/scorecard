@@ -1,5 +1,6 @@
 import copy
 from typing import Any, Dict, List, Optional, Tuple, Union
+from IPython.core.display import HTML
 
 import numexpr as ne
 import numpy as np
@@ -10,7 +11,7 @@ from scipy.sparse import hstack
 from .carousel import Carousel
 from .discretize import discretize
 from .model import Model
-from .performance import Performance
+from .performance import Performance, VariableStyler
 from .variable import Variable
 
 EvalSets = Optional[List[Tuple[pd.DataFrame, Performance]]]
@@ -246,8 +247,10 @@ class Scorecard:
 
         # get the styles
         style = [*perf.style, *self.model.style]
-        out = out.style.use(style)
-        return out.set_na_rep('') 
+        out = VariableStyler(out).use(style)
+        # out = out.style.use(style)
+        return HTML(out.set_na_rep('').render(variable_name=var))
+        # return out.set_na_rep('') 
 
     def next(self):
         self.features.next()

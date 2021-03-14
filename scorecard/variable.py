@@ -6,6 +6,7 @@ import copy
 import pandas as pd
 
 
+
 def undoable(fun):
     def inner(self: "Variable", *args, **kwargs):
         self._history.append(copy.deepcopy(self.transform))

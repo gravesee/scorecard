@@ -2,6 +2,7 @@
 
 from abc import ABC, abstractmethod, abstractproperty
 from typing import Tuple
+from jinja2.loaders import PackageLoader
 import pandas as pd
 import numpy as np
 import hashlib
@@ -47,11 +48,25 @@ class Performance(ABC):
         return iter((self.y, self.w))
 
 
+from jinja2 import Environment, ChoiceLoader, ModuleLoader
+from IPython.display import HTML
+from pandas.io.formats.style import Styler
+
+class VariableStyler(Styler):
+    env = Environment(
+        loader=ChoiceLoader([
+            PackageLoader("scorecard", "templates"),  # contains ours
+            Styler.loader,  # the default
+        ])
+    )
+    template = env.get_template("variable.tpl")
+
+
 class BinaryPerformance(Performance):
     def __init__(self, y, w=None) -> None:
         super().__init__(y, w)
 
-        s = Styler(pd.DataFrame())
+        s = VariableStyler(pd.DataFrame())
         self._style = s.bar(subset=['WoE'], align='zero', color='red').export()
 
     # @series_cache
