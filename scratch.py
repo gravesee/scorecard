@@ -2,7 +2,7 @@ from scorecard.scorecard import Scorecard
 
 from scorecard.transform import *
 import numpy as np
-from scorecard.performance import BinaryPerformance
+from scorecard.performance import BinaryPerformance, VariableStyler
 from scorecard.model import zip_coefs_and_variables
 from scorecard.scorecard import adjust
 
@@ -20,11 +20,31 @@ mod = Scorecard.discretize(X, perf=perf, max_leaf_nodes=6, min_samples_leaf=50)
 mod['pclass'].step = 1
 mod['sex'].step = 1
 mod['fare'].step = 2
-
-mod.fit()
 mod.display_variable()
 
+
+
+out = mod.display_variable()
+out['N'] = '<div class="special"><b>' + out['N'].astype(str) + '</b></div>'
+
+style = [*mod.perf.style, *mod.model.style]
+
+
+VariableStyler(out).use(style)
+
+
+# # out = out.style.use(style)
+# return HTML(out.set_na_rep('').render(variable_name=var, variable_step=self[var].step))
+        
+
+
+
 adjust(mod)
+
+mod.fit()
+from IPython.display import display_html
+display_html(mod.display_variable().render(), raw=True)
+
 
 mod.fit()
 

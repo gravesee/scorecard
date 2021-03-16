@@ -1,10 +1,12 @@
 import copy
+import math
 from typing import Any, Dict, List, Optional, Tuple, Union
-from IPython.core.display import HTML
+from IPython.core.display import HTML, display_html
 
 import numexpr as ne
 import numpy as np
 import pandas as pd
+from pandas.io import html
 from scipy.optimize import minimize
 from scipy.sparse import hstack
 
@@ -220,6 +222,21 @@ class Scorecard:
 
     def has_step_two_variables(self) -> bool:
         return any([v.step == 2 for v in self.variables.values()])
+    
+    def _apply_bar_styles(self, x: List[float]) -> List[str]:
+        def html(value):
+            res = f"""
+            <div class = \"data-bar\" width=200px>
+                <div class=\"graph ext {'neg' if value < 0 else 'pos'}\">
+                    <div style="width: {np.abs(value)}%;" class="bar"></div>
+                </div>
+            </div>
+            """
+            return res
+        
+        max_ = np.nanmax(np.abs(np.array(x)[~np.isinf(x)]))
+        vals = [100 * z / max_ if not (np.isinf(z) or np.isnan(z)) else 0 for z in x]
+        return [html(val) for val in vals]
 
     def display_variable(
         self,
@@ -245,11 +262,16 @@ class Scorecard:
 
         out.index = index
 
+        out['WoE Bar'] = self._apply_bar_styles(out['WoE'].to_list())
+
+        
+        return HTML(VariableStyler(out).render(variable_name=var, variable_step=self[var].step))
+
         # get the styles
-        style = [*perf.style, *self.model.style]
-        out = VariableStyler(out).use(style)
-        # out = out.style.use(style)
-        return HTML(out.set_na_rep('').render(variable_name=var))
+        # style = [*perf.style, *self.model.style]
+        # out = VariableStyler(out).use(style)
+        # # out = out.style.use(style)
+        # return HTML(out.set_na_rep('').render(variable_name=var, variable_step=self[var].step))
         # return out.set_na_rep('') 
 
     def next(self):
@@ -298,15 +320,15 @@ def logistic_gradient(coefs, X, y, w, offset, alpha=0.001) -> float:
 
 def adjust(mod: Scorecard):
     import ipywidgets as widgets
-    from IPython.display import display
+    from IPython.display import display, display_html
 
     input_field = widgets.Text(description="Enter Command:", disabled=False)
     
     def render():
+        nonlocal output
         var = mod.features.curr()
         with output:
-            display(widgets.HTML(f"<b>{var}</b>Step: {mod.variables[var].step}"))
-            display(mod.display_variable(var))
+            print(mod.display_variable(var))
             output.clear_output(wait=True)
 
     def handle_command(command):
@@ -327,10 +349,9 @@ def adjust(mod: Scorecard):
     def on_textbox_key_event(text):
         handle_command(text.value)
         input_field.value = ""
-        with output:
-            render()
+        render()
 
     input_field.on_submit(on_textbox_key_event)
-
     output = widgets.Output()
-    display(output, input_field)
+    return display(output, input_field)
+    # render()
